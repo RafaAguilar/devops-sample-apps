@@ -1,0 +1,32 @@
+{{- range $appName, $app := .Values.apps }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ $.Values.global.namespace }}
+  name: {{ $appName }}-service
+  labels:
+    app: {{ $appName }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+  {{- with $.Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer # TODO: adjust annotations to fix it to internal lb if not local
+  ports:
+  - port: {{ $app.communication.servicePort }}
+    targetPort: {{ $app.communication.appPort }}
+    protocol: TCP
+    name: http
+  selector:
+    app: {{ $appName }}
+    release: {{ $.Release.Name }}
+
+  # TODO: for further access security, adjust when CIDR are defined
+  # loadBalancerSourceRanges:
+  #  {{/*- toYaml $.Values.loadBalancerSourceRanges | nindent 4 */}}
+---
+{{- end }}

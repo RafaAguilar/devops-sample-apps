@@ -1,0 +1,107 @@
+{{- range $appName, $app := .Values.apps }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ $.Values.global.namespace }}
+  name: {{ $appName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+spec:
+  {{- include "apps.getReplicas" $app.resources | nindent 2 }}
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $appName }}
+        release: {{ $.Release.Name }}
+      {{- if $app.config.enabled }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configMaps.yaml") $ | sha256sum }}
+      {{- end }}
+    spec:
+      {{- if $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $.Values.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+
+      containers:
+      - name: {{ $appName }}
+        image: "{{ $app.image.repository }}:{{ $app.image.tag }}"
+        imagePullPolicy: {{ $app.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ $app.communication.appPort }}
+          protocol: TCP
+
+        {{- if $app.health.enabled }}
+        livenessProbe:
+          {{- toYaml $app.health.liveness | nindent 10 }}
+        readinessProbe:
+          {{- toYaml $app.health.readiness | nindent 10 }}
+        {{- end }}
+
+        env:
+        {{- range $key, $value := $app.environment }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- include "apps.getResources" $app.resources | nindent 10 }}
+        {{- $mounts := $app.mounts | default (list) -}}
+        {{- if $mounts }}
+        volumeMounts:
+        {{- range $mount := $mounts }}
+        - name: {{ $mount.sourceName  }}-vol
+          mountPath: {{ $mount.path }}
+          {{- if $mount.filename }}
+          subPath: {{ $mount.filename }}
+          {{- end }}
+          readOnly: true
+        {{- end }}
+        {{- end }}
+
+      {{- if $mounts }}
+      volumes:
+      {{- $mounts := $app.mounts | default (list) -}}
+      {{- range $mount := $mounts }}
+      - name: {{ $mount.sourceName  }}-vol
+        {{- if eq $mount.source "secret" }}
+        secret:
+          secretName: {{ $mount.sourceName }}
+          items:
+            - key: {{ $mount.key }}
+              path: {{ default $mount.key }}
+        {{- else if eq $mount.source "configMap" }}
+        configMap:
+          name: {{ $mount.sourceName }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+
+      # TODO: tied to tiers, every tier can be tied to a policy that
+      #       balances costs and performance
+      {{- if $app.affinity }}
+      affinity:
+        {{- toYaml $app.affinity | nindent 8 }}
+      {{- end }}
+
+      {{- if $app.tolerations }}
+      tolerations:
+        {{- toYaml $app.tolerations | nindent 8 }}
+      {{- end }}
+
+{{- end }}

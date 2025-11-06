@@ -1,0 +1,40 @@
+{{- range $appName, $app := .Values.apps }}
+{{- if $app.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: {{ $.Values.global.namespace }}
+  name: {{ $appName }}-hpa
+  labels:
+    app: {{ $appName }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $appName }}
+  {{- include "apps.getAutoscalingReplicas" $app.resources | nindent 2 }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+  {{- if $app.autoscaling.strategy }}
+  behavior:
+    {{- include "autoscaling.behaviorDownscale" $app.autoscaling | indent 4}}
+    {{- include "autoscaling.behaviorUpscale" $app.autoscaling | indent 4}}
+  {{- end -}}
+{{- end }}
+{{- end }}

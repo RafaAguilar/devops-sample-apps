@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Helm Chart Values Schema",
+  "description": "Schema for the Helm chart values.yaml used in the example.",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global configuration",
+      "properties": {
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to be added to all resources",
+          "additionalProperties": { "type": "string" }
+        },
+        "labes": {
+          "type": "object",
+          "description": "Labels to be added to all resources (note: key name is kept as in the values file)",
+          "additionalProperties": { "type": "string" }
+        },
+        "env": {
+          "type": "string",
+          "description": "Environment (e.g. dev, prod, qa)",
+          "enum": [ "dev", "prod", "qa", "staging" ]
+        }
+      },
+      "required": [ "env" ]
+    },
+
+    "apps": {
+      "type": "object",
+      "title": "Application specific configuration",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "properties": {
+                "profile": {
+                  "type": "string",
+                  "enum": [ "light", "medium", "heavy" ],
+                  "description": "CPU/memory profile"
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [ "basic", "concurrent" ],
+                  "description": "Resource tier"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [ "balanced", "cpu", "mem", "net", "gpu" ],
+                  "description": "Resource kind"
+                }
+              },
+              "required": [ "profile", "tier", "kind" ]
+            },
+
+            "autoscaling": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "strategy": {
+                  "type": "string",
+                  "enum": [ "balanced", "aggressive", "custom" ],
+                  "default": "balanced"
+                },
+                "behavior": {
+                  "type": "object",
+                  "description": "Custom scaling behavior (only valid when strategy is \"custom\")",
+                  "properties": {
+                    "downscale": {
+                      "type": "object",
+                      "properties": {
+                        "stabilizationWindow": { "type": "integer", "minimum": 0 },
+                        "percentPolicy": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "integer", "minimum": 0, "maximum": 100 },
+                            "period": { "type": "integer", "minimum": 1 }
+                          },
+                          "required": [ "value", "period" ]
+                        },
+                        "podPolicy": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "integer", "minimum": 0 },
+                            "period": { "type": "integer", "minimum": 1 }
+                          },
+                          "required": [ "value", "period" ]
+                        }
+                      },
+                      "required": [ "stabilizationWindow", "percentPolicy", "podPolicy" ]
+                    },
+                    "upscale": {
+                      "type": "object",
+                      "properties": {
+                        "stabilizationWindow": { "type": "integer", "minimum": 0 },
+                        "percentPolicy": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "integer", "minimum": 0, "maximum": 1000 },
+                            "period": { "type": "integer", "minimum": 1 }
+                          },
+                          "required": [ "value", "period" ]
+                        },
+                        "podPolicy": {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "integer", "minimum": 0 },
+                            "period": { "type": "integer", "minimum": 1 }
+                          },
+                          "required": [ "value", "period" ]
+                        }
+                      },
+                      "required": [ "stabilizationWindow", "percentPolicy", "podPolicy" ]
+                    }
+                  },
+                  "required": [ "downscale", "upscale" ]
+                }
+              },
+              "required": [ "enabled", "strategy" ]
+            },
+
+            "image": {
+              "type": "object",
+              "properties": {
+                "repository": { "type": "string" },
+                "tag": { "type": "string" },
+                "pullPolicy": {
+                  "type": "string",
+                  "enum": [ "Always", "IfNotPresent", "Never" ],
+                  "default": "IfNotPresent"
+                }
+              },
+              "required": [ "repository", "tag", "pullPolicy" ]
+            },
+
+            "communication": {
+              "type": "object",
+              "properties": {
+                "appPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                "servicePort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+              },
+              "required": [ "appPort", "servicePort" ]
+            },
+
+            "database": {
+              "type": "object",
+              "properties": {
+                "own": {
+                  "type": "object",
+                  "properties": {
+                    "enable": { "type": "boolean" },
+                    "flavor": { "type": "string" },
+                    "size": { "type": "string" }
+                  },
+                  "required": [ "enable", "flavor", "size" ]
+                },
+                "managed": {
+                  "type": "object",
+                  "properties": {
+                    "secretKey": { "type": "string" }
+                  },
+                  "required": [ "secretKey" ]
+                }
+              },
+              "required": [ "managed" ]
+            },
+
+            "environment": {
+              "type": "object",
+              "description": "Custom environment variables for the container",
+              "additionalProperties": { "type": "string" }
+            },
+
+            "mounts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": { "type": "string", "enum": [ "secret", "configMap" ] },
+                  "sourceName": { "type": "string" },
+                  "key": { "type": "string" },
+                  "path": { "type": "string" },
+                  "filename": { "type": "string" }
+                },
+                "required": [ "source", "sourceName", "key", "path", "filename" ]
+              }
+            },
+
+            "health": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false }
+              },
+              "required": [ "enabled" ]
+            }
+          },
+          "required": [ "resources", "autoscaling", "image", "communication", "database", "environment", "mounts", "health" ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [ "apps" ],
+  "additionalProperties": false
+}

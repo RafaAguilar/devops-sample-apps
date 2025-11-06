@@ -1,0 +1,121 @@
+global:
+  namespace: devops-demo
+  annotations:
+    annotation1: annotationValue1
+  labes:
+    label1: labelValue1
+
+  env: dev
+
+apps:
+  golang:
+    resources:
+      profile: medium
+      tier: basic
+      kind: balanced # or: cpu, mem, net, gpu; although basic tier only allows balanced
+
+    autoscaling:
+      enabled: true
+      strategy: balanced
+      # custom strategy example
+      # strategy: custom
+      # behavior:
+      #   downscale:
+      #     stabilizationWindow: 200
+      #     percentPolicy:
+      #       value: 30
+      #       period: 45
+      #     podPolicy:
+      #       value: 3
+      #       period: 60
+      #   upscale:
+      #     stabilizationWindow: 150
+      #     percentPolicy:
+      #       value: 250
+      #       period: 30
+
+    image:
+      repository: golang
+      tag: v0.1 # TODO: should it be rewritten at pipeline?
+      pullPolicy: IfNotPresent # TODO: override at pipeline to Always
+
+    communication:
+      appPort: 80
+      servicePort: 8080
+
+    database:
+      # own:
+      #   enable: true # deploy using ACK-RDS if true
+      #   flavor: postgres
+      #   size: small
+      managed:
+        secretKey: golang-db-info # used to pull from secret manager
+
+    environment: # custom env vars
+      APP_ENV: prod
+
+    mounts:
+    - source: secret                # e.g. secret, configMap
+      sourceName: golang-keystore   # the name of the secret/configMap
+      key: cred.p12                 # key inside the secret/configMap
+      path: /app/file.p12           # where the file appears inside the container
+      filename: file.p12            # renames the file inside the volume
+    - source: secret
+      sourceName: golang-db-config
+      key: db.config
+      path: /app/db.toml
+      filename: db.toml
+
+    health:                         # TODO: use dummy call root path to check liveness/readiness?
+      enabled: false
+
+    config:
+      enabled: false
+
+  php:
+    resources:
+      profile: heavy
+      tier: concurrent
+      kind: net
+
+    autoscaling:
+      enabled: true
+      strategy: aggressive
+
+    mounts:
+    - source: configMap
+      sourceName: php-app-config
+      key: config.prod
+      path: /var/www/html/config
+      filename: config
+
+    environment: # custom env vars
+      APP_ENV: prod
+
+    communication:
+      appPort: 80
+      servicePort: 8080
+
+    health:
+      enabled: false
+
+    database:
+      managed:
+        secretKey: golang-db-info # used to pull from secret manager
+
+    image:
+      repository: php
+      tag: v0.1 # TODO: should it be rewritten at pipeline?
+      pullPolicy: IfNotPresent
+
+    config:
+      enabled: true
+
+
+# TODO: Additional configuration
+#networkPolicy:
+#  enabled: false
+
+## TODO: Pod disruption budget
+#podDisruptionBudget:
+#  enabled: false

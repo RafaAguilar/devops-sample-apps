@@ -1,0 +1,17 @@
+{{- range $appName, $app := .Values.apps }}
+{{- if $app.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ $.Values.global.namespace }}
+  name: {{ $appName }}-app-config
+  labels:
+    app: {{ $appName }}
+
+data:
+  config: |
+    <?php
+    define('APP_ENV', 'prod');
+    ?>
+{{- end }}
+{{- end }}
