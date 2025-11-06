@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Defines metrics API for lightweight k8s distros like k3d.
+
+resources:
+
+  # TODO: local resources in case of TLS handshake for remote componets
+  #- https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  - components.yaml
+
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: --kubelet-insecure-tls
+  target:
+    kind: Deployment
+    name: metrics-server
+    namespace: kube-system
