@@ -1,0 +1,21 @@
+process:
+  php:
+    running: true
+
+file:
+  /var/www/html/config:
+    exists: true
+    mode: "0644"
+    owner: appuser
+    group: appgroup
+    filetype: file
+
+user:
+  appuser:
+    exists: true
+    uid: 1001
+    gid: 1001
+
+tcp:80:
+  listening: true
+  ip: [0.0.0.0]
