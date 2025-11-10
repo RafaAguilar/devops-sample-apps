@@ -1,0 +1,22 @@
+{{- range $appName, $app := .Values.apps }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $appName }}-ingress
+  namespace: {{ $.Values.global.namespace }}
+spec:
+  ingressClassName: public-ingress
+  rules:
+    - host: {{ $app.communication.ingressHost }}
+      http:
+        paths:
+          - path: "/{{ $appName }}"
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $appName }}-service
+                port:
+                  number: {{ $app.communication.servicePort }}
+
+{{- end }}

@@ -6,11 +6,12 @@ global:
     label1: labelValue1
 
   env: dev
+  region: eu-north-1
 
 apps:
   golang:
     resources:
-      profile: medium
+      profile: light
       tier: basic
       kind: balanced # or: cpu, mem, net, gpu; although basic tier only allows balanced
 
@@ -35,13 +36,14 @@ apps:
       #       period: 30
 
     image:
-      repository: golang
+      repository: 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-golang-eu-north-1-registry
       tag: v0.1 # TODO: should it be rewritten at pipeline?
       pullPolicy: IfNotPresent # TODO: override at pipeline to Always
 
     communication:
       appPort: 80
       servicePort: 8080
+      ingressHost: k8s-ingress-external.elb.eu-north-1.amazonaws.com
 
     database:
       # own:
@@ -66,6 +68,9 @@ apps:
       path: /app/db.toml
       filename: db.toml
 
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/dev-eu-north-1-golang-secrets # TODO: can it be set automatically?
+
     health:                         # TODO: use dummy call root path to check liveness/readiness?
       enabled: false
 
@@ -74,7 +79,7 @@ apps:
 
   php:
     resources:
-      profile: heavy
+      profile: light
       tier: concurrent
       kind: net
 
@@ -95,6 +100,7 @@ apps:
     communication:
       appPort: 80
       servicePort: 8080
+      ingressHost: k8s-ingress-external.elb.eu-north-1.amazonaws.com
 
     health:
       enabled: false
@@ -104,9 +110,12 @@ apps:
         secretKey: golang-db-info # used to pull from secret manager
 
     image:
-      repository: php
-      tag: v0.1 # TODO: should it be rewritten at pipeline?
+      repository: 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-php-eu-north-1-registry
+      tag: v0.2 # TODO: should it be rewritten at pipeline?
       pullPolicy: IfNotPresent
+
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/dev-eu-north-1-php-secrets
 
     config:
       enabled: true

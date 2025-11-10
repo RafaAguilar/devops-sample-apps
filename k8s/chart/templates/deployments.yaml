@@ -37,7 +37,7 @@ spec:
         runAsUser: 1001
         runAsGroup: 1001
         fsGroup: 1001
-
+      serviceAccountName: {{ $appName }}-service-account
       containers:
       - name: {{ $appName }}
         image: "{{ $app.image.repository }}:{{ $app.image.tag }}"
@@ -73,6 +73,19 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
+        ###
+        - name: secrets
+          mountPath: /mnt/secrets
+          readOnly: true
+        ###
+
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: "ScheduleAnyway" # TODO: if robust it should be DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: appName
 
       {{- if $mounts }}
       volumes:
@@ -91,6 +104,14 @@ spec:
         {{- end }}
       {{- end }}
       {{- end }}
+      ###
+      - name: secrets
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ $appName }}-aws-secrets
+      ###
 
       # TODO: tied to tiers, every tier can be tied to a policy that
       #       balances costs and performance

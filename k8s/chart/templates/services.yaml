@@ -15,7 +15,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  type: LoadBalancer # TODO: adjust annotations to fix it to internal lb if not local
+  type: ClusterIP
   ports:
   - port: {{ $app.communication.servicePort }}
     targetPort: {{ $app.communication.appPort }}
