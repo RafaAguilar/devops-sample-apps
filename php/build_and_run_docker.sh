@@ -23,7 +23,7 @@ download() {
 }
 
 # build the image
-docker build -f php.containerfile . -t php:v0.1
+docker buildx build --platform linux/amd64 -f php.containerfile . -t php:v0.1
 
 # test the image
 # TODO: the below binaries represent a risk with this method of downlading them

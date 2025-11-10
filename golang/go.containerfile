@@ -6,7 +6,7 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main .
 
 # Runner
 FROM alpine:latest
@@ -17,13 +17,11 @@ RUN apk --no-cache add ca-certificates && \
     mkdir /app && \
     chown -R appuser:appgroup /app
 
-COPY --from=builder /app/main /go/bin/main
-RUN chmod +x /go/bin/main
-
-
 USER appuser
 WORKDIR /app
 
+COPY --from=builder /app/main /app/main
+
 EXPOSE 80
 
-ENTRYPOINT ["/go/bin/main"]
+ENTRYPOINT ["/app/main"]
