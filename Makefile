@@ -10,6 +10,8 @@
 
 PHP_PID_FILE = ./php.pid
 GO_PID_FILE= ./go.pid
+PHP_IMAGE_VERSION ?= v0.1
+GOLANG_IMAGE_VERSION ?= v0.1
 
 help:
 	@echo "Available targets:"
@@ -18,6 +20,7 @@ help:
 	@echo "  run-local       - Run both applications locally (ports: golang=8080, php=8082)"
 	@echo "  build-image     - Build both Docker images"
 	@echo "  run-image       - Run both Docker containers (ports: golang=8080, php=8081)"
+	@echo "  tag-push        - Tag and Push app images"
 	@echo "  clean-local     - Clean up local build artifacts for both apps"
 	@echo "  clean-all       - Clean up all build artifacts and Docker images for both apps"
 	@echo ""
@@ -26,6 +29,7 @@ help:
 	@echo "  golang_run-local     - Run only the Go application locally (port: 8080)"
 	@echo "  golang_build-image   - Build only the Go Docker image"
 	@echo "  golang_run-image     - Run only the Go Docker container (port: 8080)"
+	@echo "  golang_push-image    - Tag and Push Golang images"
 	@echo "  golang_clean-local   - Clean up local build artifacts for golang"
 	@echo ""
 	@echo "PHP APP INDIVIDUAL:"
@@ -33,6 +37,7 @@ help:
 	@echo "  php_run-local        - Run only the PHP application locally (port: 8082)"
 	@echo "  php_build-image      - Build only the PHP Docker image"
 	@echo "  php_run-image        - Run only the PHP Docker container (port: 8081)"
+	@echo "  php_push-image       - Tag and Push PHP image"
 	@echo "  php_clean-local      - Clean up local build artifacts for php"
 
 # ========================================
@@ -48,15 +53,17 @@ run-image: golang_run-image php_run-image
 
 clean-local: golang_clean-local php_clean-local
 
+tag-push: golang_push-image php_push-image
+
 clean-all: clean-local
 	#TODO: stop containers using images
 	#TODO: calculate image tag from environment and using it everywhere
 	@echo "Cleaning Docker images..."
-	-docker kill `docker ps --all --filter "ancestor=golang:v0.1" --format "{{.ID}}"`
-	-docker kill `docker ps --all --filter "ancestor=php:v0.1" --format "{{.ID}}"`
-	-docker rm `docker ps --all --filter "ancestor=php:v0.1" --format "{{.ID}}"`
-	-docker rm `docker ps --all --filter "ancestor=golang:v0.1" --format "{{.ID}}"`
-	-docker rmi golang:v0.1 php:v0.1
+	-docker kill `docker ps --all --filter "ancestor=golang:$(GOLANG_IMAGE_VERSION)" --format "{{.ID}}"`
+	-docker kill `docker ps --all --filter "ancestor=php:$(PHP_IMAGE_VERSION)" --format "{{.ID}}"`
+	-docker rm `docker ps --all --filter "ancestor=php:$(PHP_IMAGE_VERSION)" --format "{{.ID}}"`
+	-docker rm `docker ps --all --filter "ancestor=golang:$(GOLANG_IMAGE_VERSION)" --format "{{.ID}}"`
+	-docker rmi golang:$(GOLANG_IMAGE_VERSION) php:$(PHP_IMAGE_VERSION)
 
 kill-apps:
 	@if [ -f "$(PHP_PID_FILE)" ]; then \
@@ -93,17 +100,22 @@ golang_run-local:
 
 golang_build-image:
 	@echo "Building Docker image for golang..."
-	cd golang && docker build -f go.containerfile . -t golang:v0.1
+	cd golang && docker build -f go.containerfile . -t golang:$(GOLANG_IMAGE_VERSION)
 
 golang_run-image: golang_build-image
 	@echo "Running Docker container for golang on port 9191..."
-	cd golang && docker run -d -p 127.0.0.1:9191:80 --volume ./tmp/file.p12:/app/file.p12 golang:v0.1
+	cd golang && docker run -d -p 127.0.0.1:9191:80 --volume ./tmp/file.p12:/app/file.p12 golang:$(GOLANG_IMAGE_VERSION)
 
 golang_clean-local:
 	@echo "Cleaning local build artifacts for golang..."
 	@rm -rf golang/bin/
 	@rm -f golang/main
 	@rm -f golang/file.p12
+
+golang_push-image: golang_build-image
+	@echo "Tagging and pushing Golang image"
+	@docker tag golang:$(GOLANG_IMAGE_VERSION) 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-golang-eu-north-1-registry:$(GOLANG_IMAGE_VERSION)
+	@docker push 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-golang-eu-north-1-registry:$(GOLANG_IMAGE_VERSION)
 
 # ========================================
 # PHP APP TARGETS
@@ -119,16 +131,21 @@ php_run-local:
 
 php_build-image:
 	@echo "Building Docker image for PHP..."
-	cd php && docker build -f php.containerfile . -t php:v0.1
+	cd php && docker buildx build --platform linux/amd64 -f php.containerfile . -t php:$(PHP_IMAGE_VERSION)
 
 php_run-image: php_build-image
 	@echo "Running Docker container for PHP on port 9090..."
-	cd php && docker run -d -p 127.0.0.1:9090:80 --volume ./config.dev:/var/www/html/config php:v0.1
+	cd php && docker run -d -p 127.0.0.1:9090:80 --volume ./config.dev:/var/www/html/config php:$(PHP_IMAGE_VERSION)
 
 php_clean-local:
 	@echo "Cleaning local build artifacts for PHP..."
 	@rm -f php/config
 	@rm -rf php/bin
+
+php_push-image: php_build-image
+	@echo "Tagging and pushing PHP image"
+	@docker tag php:$(PHP_IMAGE_VERSION) 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-php-eu-north-1-registry:$(PHP_IMAGE_VERSION)
+	@docker push 019496914213.dkr.ecr.eu-north-1.amazonaws.com/app-php-eu-north-1-registry:$(PHP_IMAGE_VERSION)
 
 # ========================================
 # ALIASES
