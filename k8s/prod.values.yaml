@@ -1,0 +1,69 @@
+global:
+  namespace: devops-demo
+
+  env: prod
+  region: eu-north-1
+
+apps:
+  golang:
+    resources:
+      profile: medium
+      tier: concurrent
+
+    autoscaling:
+      enabled: true
+      strategy: balanced
+
+    image:
+      tag: v0.1
+
+    communication:
+      ingressHost: k8s-ingress-external-a2a5d69e52-bf5af146491b3e69.elb.eu-north-1.amazonaws.com
+
+    database:
+      managed:
+        secretKey: prod/golang-secret-syha
+
+    environment:
+      APP_ENV: prod
+
+    mounts:
+    - source: secret
+      sourceName: golang-keystore
+      key: cred.p12
+      path: /app/file.p12
+      filename: file.p12
+
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/prod-eu-north-1-golang-secrets
+
+  php:
+    resources:
+      profile: heavy
+      tier: concurrent
+
+    autoscaling:
+      enabled: true
+      strategy: aggressive
+
+    communication:
+      ingressHost: k8s-ingress-external-a2a5d69e52-bf5af146491b3e69.elb.eu-north-1.amazonaws.com
+
+    mounts:
+    - source: configMap
+      sourceName: php-app-config
+      key: config.prod
+      path: /var/www/html/config
+      filename: config
+
+    environment:
+      APP_ENV: prod
+
+    database:
+      managed:
+        secretKey: prod/php-secret-lf00
+    image:
+      tag: v0.1
+
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/prod-eu-north-1-php-secrets

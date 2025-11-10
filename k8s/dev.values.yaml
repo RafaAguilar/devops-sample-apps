@@ -1,0 +1,43 @@
+global:
+  env: dev
+  region: eu-north-1
+
+apps:
+  golang:
+    database:
+      managed:
+        secretKey: dev/golang-secret-pawx
+
+    communication:
+      ingressHost: k8s-ingress-external-dbec8ea5fd-44cfb447f838bfde.elb.eu-north-1.amazonaws.com
+
+    mounts:
+    - source: secret
+      sourceName: golang-keystore
+      key: cred.p12
+      path: /app/file.p12
+      filename: file.p12
+
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/dev-eu-north-1-golang-secrets
+
+  php:
+    resources:
+      profile: light
+      tier: concurrent
+
+    communication:
+      ingressHost: k8s-ingress-external-dbec8ea5fd-44cfb447f838bfde.elb.eu-north-1.amazonaws.com
+
+    environment:
+      APP_ENV: prod # due to php app logic
+
+    database:
+      managed:
+        secretKey: dev/php-secret-nc1z
+
+    image:
+      tag: v0.1
+
+    security:
+      secretsIamRoleArn: arn:aws:iam::019496914213:role/dev-eu-north-1-php-secrets
