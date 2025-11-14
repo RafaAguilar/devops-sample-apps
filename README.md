@@ -1,113 +1,156 @@
-# ReadMe - YET TO BE DONE, IN DRAFT
+# devops-sample-apps
 
-# Content
-This repo holds the code to build, run, package and deploy Golang and PHP apps along with their required infrastructure.
+## Overview
 
-It mainly focus on creating an environment that promotes good practices and fast iterations.
+This repository contains the code and configuration for building, running, packaging, and deploying Golang and PHP applications, along with their supporting infrastructure. The primary goals are to facilitate rapid development, promote best practices, and provide a scalable and maintainable deployment pipeline.
 
-# Motivations
+## Premises
 
-1. Ease of development.
-2. Promote good practices (goss, docker linter, ...)
-3. Reduce cognitive load while enabling power users (chart)
-4. Enables local testing of the app with no environment (build and run, make), minimal environment (docker composer, helm chart) or fully automated close-to-cloud (TILT)
-5. Extendable and easy to deploy infrastructure.
+* As the two apps are in the same repo, I am treating the project as a monorepo.
+* As there is no way I can create another account for production, both dev and prod will be created in the monorepo.
 
-# Premises
+## Goals & Principles
 
-- As the two apps are in the same repo, I am treating the project as a monorepo.
-- As there is no way I can create another account for production, both dev and prod will be created in the monorepo.
+This project prioritizes:
 
-# How to run apps locally
+* **Ease of Development:** Streamlined workflows for local development and testing.
+* **Best Practices:**  Adherence to industry standards and the use of tools like linters and container testing.
+* **Reduced Cognitive Load:**  Clear and consistent configuration, enabling both quick experimentation and robust production deployments.
+* **Flexible Environments:** Support for local testing (build & run, Docker Compose, Helm Chart) and automated cloud deployments (TILT).
+* **Extensibility & Scalability:**  Infrastructure designed for easy expansion and adaptation.
 
-The suggested method is to use from most integrated environment to more standalone way in this order:
-- TILT: `tilt up` from project root.
+## Architecture & Design
 
-TODO: move alternatives to another document.
-- Docker Composer: `docker-compose up -d` from project root.
-- Makefile: `make run`, use `make help` for more options.
-- Single App Runs: `./build_and_run_docker.sh` from each app folder.
+High level, low resolution, overview of the problem statement:
+![](./docs/overview.jpg)
 
-# Features
+### Environment Strategy
 
-- Standalone build scripts
-- GOSS container tests
-- Docker Composer alternative
-- TILT local environment
+The project supports three distinct environments:
 
-# Network
-Single: 2 AZ, 2 Public and 2 Private subnet, ~1000 IPs each
-Failover: 2 AZ, 2 Public and 2 Private subnet, ~2000 IPs each
-Robust: 3 AZ, 3 Public and 3 Private subnet, ~3000 IPs each
+* **Single:** A minimal environment for basic testing and development.
+* **Failover:**  A more resilient environment with multi-AZ deployment and redundancy.
+* **Robust:** A highly available and scalable environment with multi-AZ deployment, read replicas, and advanced monitoring.
 
-# Compute
-Single: 1 NodeGroup (Spot)
-Failover: 2 NodeGroups (Spot & Reserved)*
-Robust: 2 NodeGroup (Reserved & OnDemand)*
+_note: More details at Network, Compute and Database sections below._
 
-`*` *note: Reserved and OnDemand type of nodegroups are not implemented to avoid extra costs, but left here for sketching the idea*
- 
-# Database
-Single: no multi-az, no read replica
-Failover: multi-az, no read replica
-Robust: multi-az, read replica
+## Getting Started
 
-# Requirements
-- golang sdk
-- php sdk
-- terraform
-- terragrunt
-- checkov
-- a container runtime (optional)
-- a k8s distribution (optional)
-- TILT(optional)
-- Makefile tools (optional)
-- curl (optional)
+### Prerequisites
 
+* Golang SDK
+* PHP SDK
+* Terraform
+* Terragrunt
+* Checkov
+* Container Runtime (Docker, Podman, etc.) - *Optional*
+* Kubernetes Distribution (e.g., Minikube, Kind, AKS, EKS) - *Optional*
+* TILT - *Optional*
+* Makefile tools - *Optional*
+* curl - *Optional*
 
-# Collab
+### Running the Applications Locally
 
-`helm install -f k8s/dev.values.yaml "devops-demo" k8s/chart --namespace devops-demo --create-namespace`
+The recommended approach is to use TILT for the most integrated experience.  Alternatives are provided for different levels of isolation and complexity.
 
-`terragrunt hcl fmt --filter './live/**/*.hcl' --experiment-mode`
+1. **TILT:** `tilt up` from the project root.
+2. **Docker Compose:** `docker-compose up -d` from the project root.
+3. **Makefile:** `make run-image`. Use `make help` for a list of available commands.
+4. **Single App Runs:** Navigate to each app's directory and run `./build_and_run_docker.sh`.
 
-`terraform fmt ./modules -recursive`
+## Infrastructure Configuration
 
-`helm lint k8s/chart/`
+### Modules
 
-`kubeconform`
+The infrastructure is defined using Terraform modules to promote reusability and maintainability.
 
-# Wishlist
-
-- Create a single config file that parametrizes both Chart and Infra
-- Reduce cognitive load on infra environments, e.g. use a "Tier" and a "Traffic" oa alike to derive redundancy: subnets, replicas, database size, etc
-- Cluster database option, maybe even using ACK
-- Create Custom policies to enforce taggging, naming and other conventions (https://terraform-compliance.com)
-
-
-
-# Missing
-
-
-- CI/CD Pipeline
-- Implement database secret using KMS(`master_user_secret_kms_key_id = aws_kms_key.this.key_id`) or Vault
-- Restrict Database access further: Pod Identity, stronger Security Groups
-- Embed checkov in Terragrunt as a before apply hook
-- Extend Module Variable values validations (only network has it)
-- Separate DB type, sizes, etc
-- Cost management: alerts, limits, etc
-- PDB for deployments
-- Separate Namespace per application
-
-
-
-# Known issues
-
-- `make kill-apps` does not work properly, the sub-process for each app is not captured, to fix if there is time, as it is non-critical.
-
-# Tech Debt
-`checkov --framework terraform --directory infra/modules --download-external-modules true  | grep FAILED -B1 | grep Check`
+```sh
+./infra/modules
+	├── networking    : VPC, Subnet, Gateways and Routes definition
+	├── compute       : Mainly Kubernetes cluster and nodgroups and OIDC and PodIdentity
+	├── communications: Load Balancer Controller and NGINX Ingress
+	├── compute-extras: AWS Autoscaler
+	├── storage       : EFS setup
+	├── security      : Secrets CSI driver and provider
+	└── database      : RDS Postgres setup
 ```
+
+[DIAGRAM SUGGESTION: A diagram illustrating the relationships between the different infrastructure modules.]
+
+### Environments
+
+The infrastructure is deployed to different environments using Terragrunt.
+
+```sh
+./infra/live
+	└── eu-north-1
+	    ├── dev
+	    │	├── communications/
+	    │ 	├── compute/
+	    │	├── compute-extras/
+	    │	├── database/
+	    │	├── networking/
+	    │	├── security/
+	    │	├── storage/
+	    │   └── locals.hcl     // dev shared values
+	    ├── prod
+	    │	├── communications
+	    │	├── compute
+	    │	├── compute-extras
+	    │	├── database
+	    │	├── networking
+	    │	├── security
+	    │	├── storage
+	    │	└── locals.hcl     // prod shared values
+	    ├── registry
+	    │	 └── terragrunt.hcl 
+	    └── terragrunt.hcl      // main provider definitions
+```
+
+
+## Network & Compute Resources
+
+The following table summarizes the network and compute configurations for each environment:
+
+| Environment | Network Configuration | Compute Configuration |
+|---|---|---|
+| **Single** | 2 AZ, 2 Public & 2 Private Subnets (~1000 IPs each) | 1 NodeGroup (Spot) |
+| **Failover** | 2 AZ, 2 Public & 2 Private Subnets (~2000 IPs each) | 2 NodeGroups (Spot & Reserved)* |
+| **Robust** | 3 AZ, 3 Public & 3 Private Subnets (~3000 IPs each) | 2 NodeGroups (Reserved & OnDemand)* |
+
+*Note: Reserved and OnDemand node group types are not implemented to avoid extra costs, but are included in the design for future consideration.*
+
+![](./docs/network.jpg)
+
+## Database Configuration
+
+| Environment | Database Configuration |
+|---|---|
+| **Single** | No multi-AZ, no read replica |
+| **Failover** | Multi-AZ, no read replica |
+| **Robust** | Multi-AZ, read replica |
+
+![](./docs/database.jpg)
+
+## Collaboration & Linting
+
+The following commands can be used to ensure code quality and consistency:
+
+* `helm install -f k8s/dev.values.yaml "devops-demo" k8s/chart --namespace devops-demo --create-namespace`
+* `terragrunt hcl fmt --filter './live/**/*.hcl' --experiment-mode`
+* `terraform fmt ./modules -recursive`
+* `helm lint k8s/chart/`
+* `helm template k8s/chart/ --debug |  kubeconform`
+
+## Known Issues & Tech Debt
+
+* **`make kill-apps`:**  The `make kill-apps` command does not reliably terminate all application processes. This is a non-critical issue and will be addressed if time permits.
+
+* **Checkov Findings:** The following Checkov findings represent areas for improvement in the infrastructure configuration:
+
+```sh
+checkov --framework terraform --directory infra/modules --download-external-modules true  | grep FAILED -B1 | grep Check
+
 Check: CKV_AWS_290: "Ensure IAM policies does not allow write access without constraints"
 Check: CKV_AWS_355: "Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions"
 Check: CKV_AWS_39: "Ensure Amazon EKS public endpoint disabled"
@@ -124,21 +167,35 @@ Check: CKV_AWS_149: "Ensure that Secrets Manager secret is encrypted using KMS C
 Check: CKV_AWS_184: "Ensure resource is encrypted by KMS using a customer managed Key (CMK)"
 ```
 
-####################################
 
-# devops-sample-apps
+## Application Specifics
 
-## golang
+### Golang Application
 
-Application in runtime needs p12 file(filename: file.p12) next to application binary.
+The Golang application requires a `file.p12` certificate file to be placed next to the application binary at runtime.
 
-## php
+### PHP Application
 
-Application to run on production needs env `APP_ENV=prod` and file `config` next to index.php, 
-repository contains `config.prod` and `config.dev`, for production purposes `config.prod` needs to be renamed to `config`. 
+The PHP application requires the `APP_ENV` environment variable to be set to `prod` for production deployments.  The `config.prod` file should be renamed to `config` in the application directory.
+
+## Future Enhancements (Wishlist)
+
+* **Unified Configuration:** Create a single configuration file to parameterize both the Helm chart and infrastructure configuration.
+* **Tiered Infrastructure:** Reduce cognitive load by using a "Tier" and "Traffic" abstraction to derive redundancy settings (subnets, replicas, database size, etc.).
+* **Clustered Database:** Explore options for clustering the database, potentially using Amazon Aurora.
+* **Custom Policies:** Implement custom policies to enforce tagging, naming conventions, and other standards using tools like Terraform Compliance.
 
 
+## Left out of Demo
 
-
-
+* **Manage Secrets Securely and Reliably:** Use KMS, Vault or alike to create, rotate, audit and provide secrets, e.g. `.p12` secret provided to Golang app. 
+* **CI/CD Pipeline**: Implement a robust CI/CD pipeline for automated building, testing, and deployment.
+* **Database Access Control:** Enhance database access control by leveraging Pod Identity and strengthening Security Group rules.
+* **Automated Security Checks:** Integrate Checkov into the Terragrunt workflow as a pre-apply hook to enforce security best practices.
+* **Variable Validation:** Extend validation of module variable values beyond the network module to ensure data integrity and prevent misconfigurations.
+* **Database Flexibility:** Enable support for different database types and sizes to accommodate varying application requirements.
+* **Cost Management:** Implement cost monitoring, alerting, and limits to optimize resource utilization and control expenses.
+* **Pod Disruption Budgets (PDBs):** Implement PDBs to minimize downtime during deployments and ensure application availability.
+* **Namespace Isolation:** Separate applications into distinct Kubernetes namespaces for improved isolation and resource management.
+* **Roles Separation to Manage infra:** Create limited roles each environment to be assumed by the deployer user. 
 
